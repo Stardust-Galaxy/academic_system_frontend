@@ -30,19 +30,35 @@ function StudentHomepage() {
         const fetchData = async () => {
             try {
                 // Fetch student info
-                const infoResponse = await fetch("/api/student/info", {
+                const infoResponse = await fetch("http://localhost:3000/api/students/info", {
                     headers: { Authorization: `Bearer ${user.token}` },
                 });
 
                 if (!infoResponse.ok) {
-                    throw new Error("Failed to fetch student information");
+                    // Display actual response content for debugging
+                    const errorText = await infoResponse.text();
+                    console.error("Error response:", errorText);
+                    throw new Error(`Failed to fetch student information: ${infoResponse.status}`);
+                }
+                // else {
+                //     console.log("Student info response:", infoResponse.data);
+                //     setInfo(infoResponse.data);
+                // }
+
+
+                // Check response content type
+                const contentType = infoResponse.headers.get("content-type");
+                if (!contentType || !contentType.includes("application/json")) {
+                    const text = await infoResponse.text();
+                    console.error("Non-JSON response:", text);
+                    throw new Error("Server returned non-JSON response");
                 }
 
                 const infoData = await infoResponse.json();
                 setInfo(infoData);
 
-                // Fetch course statistics
-                const courseResponse = await fetch("/api/student/course-stats", {
+                // Use consistent URL format for all API calls
+                const courseResponse = await fetch("http://localhost:3000/api/students/course-stats", {
                     headers: { Authorization: `Bearer ${user.token}` },
                 });
 
@@ -51,8 +67,8 @@ function StudentHomepage() {
                     setCourseStats(courseData);
                 }
 
-                // Fetch grade statistics
-                const gradeResponse = await fetch("/api/student/grade-stats", {
+                // Fix URL path (students plural)
+                const gradeResponse = await fetch("http://localhost:3000/api/students/grade-stats", {
                     headers: { Authorization: `Bearer ${user.token}` },
                 });
 
@@ -84,13 +100,15 @@ function StudentHomepage() {
                     <Card className="page-card" sx={{ mb: 4 }}>
                         <CardContent>
                             <Typography variant="h4" className="page-title">
-                                Welcome, {info.name}
+                                Welcome, {info.student_name}
                             </Typography>
                             <Divider sx={{ mb: 3 }} />
                             <Box className="info-section">
-                                <Typography variant="body1">Student ID: {info.id}</Typography>
+                                <Typography variant="body1">Student ID: {info.student_id}</Typography>
                                 <Typography variant="body1">Major: {info.major}</Typography>
-                                <Typography variant="body1">Email: {info.email}</Typography>
+                                <Typography variant="body1">Department: {info.dept_name}</Typography>
+                                <Typography variant="body1">Year: {info.year}</Typography>
+                                <Typography variant="body1">Tele: {info.tele}</Typography>
                             </Box>
                         </CardContent>
                     </Card>

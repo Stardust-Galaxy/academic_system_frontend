@@ -27,17 +27,33 @@ function SchedulePage() {
     useEffect(() => {
         const fetchSchedule = async () => {
             try {
-                const response = await fetch("/api/student/schedule", {
+                const response = await fetch("http://localhost:3000/api/students/schedule", {
                     headers: { Authorization: `Bearer ${user.token}` },
                 });
 
                 if (!response.ok) {
-                    throw new Error("Failed to fetch schedule");
+                    const errorText = await response.text();
+                    console.error("Error response:", errorText);
+                    throw new Error(`Failed to fetch schedule: ${response.status}`);
                 }
 
-                const data = await response.json();
-                setSchedule(data.courses || []);
-                setLoading(false);
+                // Check response content type
+                const contentType = response.headers.get("content-type");
+                if (!contentType || !contentType.includes("application/json")) {
+                    const text = await response.text();
+                    console.error("Non-JSON response:", text);
+                    throw new Error("Server returned non-JSON response");
+                }
+
+                try {
+                    const data = await response.json();
+                    console.log(data.data);
+                    setSchedule(data.data || []);
+                    setLoading(false);
+                } catch (parseError) {
+                    console.error("JSON parsing error:", parseError);
+                    throw new Error("Failed to parse response as JSON");
+                }
             } catch (err) {
                 setError(err.message);
                 setLoading(false);
@@ -82,16 +98,18 @@ function SchedulePage() {
                                                         <TableCell>Course</TableCell>
                                                         <TableCell>Time</TableCell>
                                                         <TableCell>Location</TableCell>
-                                                        <TableCell>Instructor</TableCell>
+                                                        <TableCell>Teacher</TableCell>
+                                                        <TableCell>Credits</TableCell>
                                                     </TableRow>
                                                 </TableHead>
                                                 <TableBody>
                                                     {daySchedule.courses.map((course) => (
-                                                        <TableRow key={course.id} hover>
-                                                            <TableCell>{course.name}</TableCell>
-                                                            <TableCell>{`${course.startTime} - ${course.endTime}`}</TableCell>
-                                                            <TableCell>{course.location}</TableCell>
-                                                            <TableCell>{course.instructor}</TableCell>
+                                                        <TableRow key={course.course_id} hover>
+                                                            <TableCell>{course.course_name}</TableCell>
+                                                            <TableCell>{`${course.start_time} - ${course.end_time}`}</TableCell>
+                                                            <TableCell>{course.building}</TableCell>
+                                                            <TableCell>{course.teacher_name}</TableCell>
+                                                            <TableCell>{course.credits}</TableCell>
                                                         </TableRow>
                                                     ))}
                                                 </TableBody>

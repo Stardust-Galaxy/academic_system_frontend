@@ -8,8 +8,8 @@ import {
 
 function LoginPage() {
     console.log("LoginPage");
-    const [role, setRole] = useState("student");
-    const [username, setUsername] = useState("");
+    const [user_type, setUser_type] = useState("student");
+    const [user_name, setUser_name] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const { login } = useAuth();
@@ -17,15 +17,27 @@ function LoginPage() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!username || !password) {
+        if (!user_name || !password) {
             setError("Please fill in all fields");
             return;
         }
         try {
-            console.log("Logging in with:", { username, password, role });
-            const mockToken = 'mock-jwt-token-' + role;
-            login(mockToken, role);
-            navigate(`/${role}`);
+            console.log("Logging in with:", { username: user_name, password, role: user_type });
+            // const mockToken = 'mock-jwt-token-' + role;
+            // login(mockToken, role);
+            // navigate(`/${role}`);
+            //real login
+            const response = await fetch("http://localhost:3000/api/users/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ user_name, password, user_type }),
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message);
+            }
+            login(data.token, user_type);
+            navigate(`/${user_type}`);
         } catch (err) {
             setError("An error occurred");
             console.error(err);
@@ -63,8 +75,8 @@ function LoginPage() {
 
                         <RadioGroup
                             row
-                            value={role}
-                            onChange={(e) => setRole(e.target.value)}
+                            value={user_type}
+                            onChange={(e) => setUser_type(e.target.value)}
                             sx={{ mb: 2 }}
                         >
                             <FormControlLabel value="student" control={<Radio />} label="Student" />
@@ -81,8 +93,8 @@ function LoginPage() {
                             name="username"
                             autoComplete="username"
                             autoFocus
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
+                            value={user_name}
+                            onChange={(e) => setUser_name(e.target.value)}
                         />
 
                         <TextField
