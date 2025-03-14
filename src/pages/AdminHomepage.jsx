@@ -13,7 +13,7 @@ function AdminHomepage() {
     useEffect(() => {
         const fetchInfo = async () => {
             try {
-                const response = await fetch("/api/admin/info", {
+                const response = await fetch("http://localhost:3000/api/admin/info", {
                     headers: { Authorization: `Bearer ${user.token}` },
                 });
 
@@ -22,7 +22,8 @@ function AdminHomepage() {
                 }
 
                 const data = await response.json();
-                setInfo(data);
+                console.log(data.data);
+                setInfo(Array.isArray(data.data) ? data.data[0] : data.data);
                 setLoading(false);
             } catch (err) {
                 setError(err.message);
@@ -44,13 +45,13 @@ function AdminHomepage() {
                 <Card className="page-card">
                     <CardContent>
                         <Typography variant="h4" className="page-title">
-                            Welcome, {info.name}
+                            Welcome, {info.admin_name}
                         </Typography>
                         <Divider sx={{ mb: 3 }} />
                         <Box className="info-section">
-                            <Typography variant="body1">Admin ID: {info.id}</Typography>
+                            <Typography variant="body1">Admin ID: {info.admin_id}</Typography>
                             <Typography variant="body1">Role: System Administrator</Typography>
-                            <Typography variant="body1">Email: {info.email}</Typography>
+                            {/*<Typography variant="body1">Email: {info.email}</Typography>*/}
                         </Box>
                     </CardContent>
                 </Card>

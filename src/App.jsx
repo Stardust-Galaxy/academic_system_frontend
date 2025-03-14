@@ -73,7 +73,6 @@ function App() {
                             <AdminControlPage />
                         </ProtectedRoute>
                     } />
-
                     {/* Default routes */}
                     <Route path="/" element={<Navigate to="/login" replace />} />
                     <Route path="*" element={<Navigate to="/login" replace />} />

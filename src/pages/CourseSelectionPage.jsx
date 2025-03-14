@@ -37,7 +37,7 @@ function CourseSelectionPage() {
             setLoading(true);
 
             // Fetch enrolled courses
-            const enrolledResponse = await fetch("/api/student/enrolled-courses", {
+            const enrolledResponse = await fetch(`http://localhost:3000/api/students/enrolled-courses`, {
                 headers: { Authorization: `Bearer ${user.token}` },
             });
 
@@ -46,10 +46,11 @@ function CourseSelectionPage() {
             }
 
             const enrolledData = await enrolledResponse.json();
-            setEnrolledCourses(enrolledData.courses || []);
+            // Check if data exists in response or use the whole response
+            setEnrolledCourses(enrolledData.data || []);
 
             // Fetch available courses
-            const availableResponse = await fetch("/api/student/available-courses", {
+            const availableResponse = await fetch(`http://localhost:3000/api/students/available-courses`, {
                 headers: { Authorization: `Bearer ${user.token}` },
             });
 
@@ -58,10 +59,13 @@ function CourseSelectionPage() {
             }
 
             const availableData = await availableResponse.json();
-            setAvailableCourses(availableData.courses || []);
+            console.log(availableData.data);
+            // Check if data exists in response or use the whole response
+            setAvailableCourses(availableData.data|| []);
 
             setLoading(false);
         } catch (err) {
+            console.error("Error fetching courses:", err);
             setError(err.message);
             setLoading(false);
         }
@@ -71,20 +75,36 @@ function CourseSelectionPage() {
         fetchCourses();
     }, [user.token]);
 
-    const handleEnroll = async (courseId) => {
+    const handleEnroll = async (courseId, sectionId, semester, year) => {
         try {
-            const response = await fetch("/api/student/enroll", {
+            console.log("Enrolling with data:", { courseId, sectionId, semester, year });
+
+            // Create payload with consistent naming that matches your database fields
+            const payload = {
+                course_id: courseId,
+                sec_id: sectionId,
+                semester: semester,
+                year: year
+            };
+
+            console.log("Sending enrollment request with payload:", payload);
+
+            const response = await fetch("http://localhost:3000/api/students/enroll", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${user.token}`
                 },
-                body: JSON.stringify({ courseId })
+                body: JSON.stringify(payload),
             });
 
+            console.log("Enrollment response status:", response.status);
+
+            const data = await response.json();
+            console.log("Response data:", data);
+
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || "Failed to enroll in course");
+                throw new Error(data.message || "Failed to enroll in course");
             }
 
             setSuccess("Successfully enrolled in course");
@@ -93,19 +113,22 @@ function CourseSelectionPage() {
             // Refresh course lists
             fetchCourses();
         } catch (err) {
-            setError(err.message);
+            console.error("Enrollment error:", err);
+            setError(err.message || "Network error during enrollment");
             setTimeout(() => setError(null), 3000);
         }
     };
 
-    const handleDrop = async (courseId) => {
+    const handleDrop = async (courseId, sectionId, semester, year) => {
         if (window.confirm("Are you sure you want to drop this course?")) {
             try {
-                const response = await fetch(`/api/student/courses/${courseId}`, {
-                    method: "DELETE",
+                const response = await fetch(`http://localhost:3000/api/students/drop`, {
+                    method: "POST",
                     headers: {
+                        "Content-Type": "application/json",
                         Authorization: `Bearer ${user.token}`
-                    }
+                    },
+                    body: JSON.stringify({ courseId, sectionId, semester, year }),
                 });
 
                 if (!response.ok) {
@@ -124,10 +147,10 @@ function CourseSelectionPage() {
         }
     };
 
-    // Filter available courses based on search term
+
     const filteredAvailableCourses = availableCourses.filter(course =>
-        course.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        course.instructor.toLowerCase().includes(searchTerm.toLowerCase())
+        (course.course_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (course.teacher_name || "").toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     return (
@@ -159,25 +182,29 @@ function CourseSelectionPage() {
                                             <TableRow>
                                                 <TableCell>Course Name</TableCell>
                                                 <TableCell>Instructor</TableCell>
-                                                <TableCell>Time</TableCell>
+                                                <TableCell>Credits</TableCell>
                                                 <TableCell>Location</TableCell>
+                                                <TableCell>Semester</TableCell>
+                                                <TableCell>Time</TableCell>
                                                 <TableCell>Action</TableCell>
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
                                             {enrolledCourses.length > 0 ? (
                                                 enrolledCourses.map((course) => (
-                                                    <TableRow key={course.id} hover>
-                                                        <TableCell>{course.name}</TableCell>
-                                                        <TableCell>{course.instructor}</TableCell>
-                                                        <TableCell>{course.time}</TableCell>
-                                                        <TableCell>{course.location}</TableCell>
+                                                    <TableRow key={course.course_id} hover>
+                                                        <TableCell>{course.course_name}</TableCell>
+                                                        <TableCell>{course.teacher_name || "Not assigned"}</TableCell>
+                                                        <TableCell>{course.credits}</TableCell>
+                                                        <TableCell>{`${course.building} ${course.room_number}`}</TableCell>
+                                                        <TableCell>{`${course.semester} ${course.year}`}</TableCell>
+                                                        <TableCell>{`${course.day} ${course.start_time}-${course.end_time}`}</TableCell>
                                                         <TableCell>
                                                             <Button
                                                                 variant="outlined"
                                                                 color="error"
                                                                 size="small"
-                                                                onClick={() => handleDrop(course.id)}
+                                                                onClick={() => handleDrop(course.course_id, course.sec_id, course.semester, course.year)}
                                                             >
                                                                 Drop
                                                             </Button>
@@ -219,28 +246,29 @@ function CourseSelectionPage() {
                                             <TableRow>
                                                 <TableCell>Course Name</TableCell>
                                                 <TableCell>Instructor</TableCell>
-                                                <TableCell>Time</TableCell>
+                                                <TableCell>Credits</TableCell>
                                                 <TableCell>Location</TableCell>
-                                                <TableCell>Available Seats</TableCell>
+                                                <TableCell>Semester</TableCell>
+                                                <TableCell>Time</TableCell>
                                                 <TableCell>Action</TableCell>
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
                                             {filteredAvailableCourses.length > 0 ? (
                                                 filteredAvailableCourses.map((course) => (
-                                                    <TableRow key={course.id} hover>
-                                                        <TableCell>{course.name}</TableCell>
-                                                        <TableCell>{course.instructor}</TableCell>
-                                                        <TableCell>{course.time}</TableCell>
-                                                        <TableCell>{course.location}</TableCell>
-                                                        <TableCell>{course.availableSeats}</TableCell>
+                                                    <TableRow key={course.course_id} hover>
+                                                        <TableCell>{course.course_name}</TableCell>
+                                                        <TableCell>{course.teacher_name || "Not assigned"}</TableCell>
+                                                        <TableCell>{course.credits}</TableCell>
+                                                        <TableCell>{`${course.building} ${course.room_number}`}</TableCell>
+                                                        <TableCell>{`${course.semester} ${course.year}`}</TableCell>
+                                                        <TableCell>{`${course.day} ${course.start_time}-${course.end_time}`}</TableCell>
                                                         <TableCell>
                                                             <Button
-                                                                variant="contained"
-                                                                color="primary"
+                                                                variant="outlined"
+                                                                color="success"
                                                                 size="small"
-                                                                onClick={() => handleEnroll(course.id)}
-                                                                disabled={course.availableSeats <= 0}
+                                                                onClick={() => handleEnroll(course.course_id, course.sec_id, course.semester, course.year)}
                                                             >
                                                                 Enroll
                                                             </Button>

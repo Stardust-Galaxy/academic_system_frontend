@@ -48,6 +48,7 @@ function Layout({ children, role }) {
             { text: "My Schedule", icon: <CalendarMonthIcon />, path: "/student/schedule" },
             { text: "Course Selection", icon: <BookIcon />, path: "/student/course-selection" },
             { text: "My Grades", icon: <GradeIcon />, path: "/student/grades" }
+
         ],
         teacher: [
             { text: "Home", icon: <HomeIcon />, path: "/teacher" },
