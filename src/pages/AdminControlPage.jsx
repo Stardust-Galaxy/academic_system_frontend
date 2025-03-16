@@ -201,7 +201,7 @@ function AdminControlPage() {
                     throw new Error("Failed to fetch students");
                 }
                 const studentsData = await studentsResponse.json();
-                setStudents(studentsData.students || []);
+                setStudents(studentsData.data || []);
 
                 // Fetch grades
                 const gradesResponse = await fetch("http://localhost:3000/api/admin/grades", {
@@ -371,7 +371,7 @@ function AdminControlPage() {
     const handleDeleteCourse = async (courseId) => {
         if (window.confirm("Are you sure you want to delete this course?")) {
             try {
-                const response = await fetch(`http://localhost:3000/api/admin/courses/${courseId}`, {
+                const response = await fetch(`http://localhost:3000/api/admin/courses/${courseId}/`, {
                     method: "DELETE",
                     headers: {
                         Authorization: `Bearer ${user.token}`
@@ -425,7 +425,7 @@ function AdminControlPage() {
     const handleSaveGrade = async () => {
         try {
             const method = isEditing ? "PUT" : "POST";
-            const url = isEditing ? `http://localhost:3000/api/admin/grades/${currentGrade.id}` : "http://localhost:3000/api/admin/grades";
+            const url = isEditing ? `http://localhost:3000/api/admin/grades/${currentGrade.student_id}` : "http://localhost:3000/api/admin/grades";
 
             const response = await fetch(url, {
                 method,
@@ -450,20 +450,20 @@ function AdminControlPage() {
             }
 
             const gradesData = await gradesResponse.json();
-            setGrades(gradesData.grades || []);
+            setGrades(gradesData.data || []); // Changed from gradesData.grades to gradesData.data
             setSuccess(`Grade ${isEditing ? "updated" : "created"} successfully`);
 
             setTimeout(() => setSuccess(null), 3000);
             setOpenGradeDialog(false);
         } catch (err) {
-            showMessage('error',err.message);
+            showMessage('error', err.message);
         }
     };
 
-    const handleDeleteGrade = async (gradeId) => {
+    const handleDeleteGrade = async (student_id, course_id, sec_id, semester, year) => {
         if (window.confirm("Are you sure you want to delete this grade record?")) {
             try {
-                const response = await fetch(`http://localhost:3000/api/admin/grades/${gradeId}`, {
+                const response = await fetch(`http://localhost:3000/api/admin/grades/${student_id}/${course_id}/${sec_id}/${semester}/${year}`, {
                     method: "DELETE",
                     headers: {
                         Authorization: `Bearer ${user.token}`
@@ -474,12 +474,22 @@ function AdminControlPage() {
                     throw new Error("Failed to delete grade");
                 }
 
-                // Update grades state by removing the deleted grade
-                setGrades(grades.filter(grade => grade.id !== gradeId));
+                // Refresh grades from server instead of filtering locally
+                const gradesResponse = await fetch("http://localhost:3000/api/admin/grades", {
+                    headers: { Authorization: `Bearer ${user.token}` },
+                });
+
+                if (!gradesResponse.ok) {
+                    throw new Error("Failed to refresh grades");
+                }
+
+                const gradesData = await gradesResponse.json();
+                setGrades(gradesData.data || []);
+
                 setSuccess("Grade deleted successfully");
                 setTimeout(() => setSuccess(null), 3000);
             } catch (err) {
-                setError(err.message);
+                showMessage('error', err.message);
             }
         }
     };
@@ -674,7 +684,7 @@ function AdminControlPage() {
         try {
             const method = isEditing ? "PUT" : "POST";
             const url = isEditing
-                ? `http://localhost:3000/api/admin/sections/${currentSection.course_id}/${currentSection.sec_id}`
+                ? `http://localhost:3000/api/admin/sections/${currentSection.course_id}/${currentSection.sec_id}/${currentSection.semester}/${currentSection.year}`
                 : "http://localhost:3000/api/admin/sections";
 
             const response = await fetch(url, {
@@ -1000,7 +1010,7 @@ function AdminControlPage() {
                                                             <IconButton onClick={() => handleOpenGradeDialog(grade)} size="small">
                                                                 <EditIcon />
                                                             </IconButton>
-                                                            <IconButton onClick={() => handleDeleteGrade(`${grade.student_id}-${grade.course_id}-${grade.sec_id}`)} size="small" color="error">
+                                                            <IconButton onClick={() => handleDeleteGrade(grade.student_id,grade.course_id,grade.sec_id,grade.semester,grade.year)} size="small" color="error">
                                                                 <DeleteIcon />
                                                             </IconButton>
                                                         </TableCell>
@@ -1106,6 +1116,7 @@ function AdminControlPage() {
             </Dialog>
 
             {/* Grade Dialog */}
+            {/* Grade Dialog */}
             <Dialog open={openGradeDialog} onClose={handleCloseGradeDialog}>
                 <DialogTitle>{isEditing ? "Edit Grade" : "Add New Grade"}</DialogTitle>
                 <DialogContent>
@@ -1113,13 +1124,13 @@ function AdminControlPage() {
                         <InputLabel>Student</InputLabel>
                         <Select
                             name="student_id"
-                            value={currentGrade.student_id}
+                            value={currentGrade.student_id || ""}
                             onChange={handleGradeChange}
                             label="Student"
                         >
                             {students.map(student => (
-                                <MenuItem key={student.id} value={student.id}>
-                                    {student.name} ({student.id})
+                                <MenuItem key={student.student_id} value={student.student_id}>
+                                    {student.student_id}
                                 </MenuItem>
                             ))}
                         </Select>
@@ -1129,13 +1140,13 @@ function AdminControlPage() {
                         <InputLabel>Course</InputLabel>
                         <Select
                             name="course_id"
-                            value={currentGrade.course_id}
+                            value={currentGrade.course_id || ""}
                             onChange={handleGradeChange}
                             label="Course"
                         >
                             {courses.map(course => (
-                                <MenuItem key={course.id} value={course.id}>
-                                    {course.name}
+                                <MenuItem key={course.course_id} value={course.course_id}>
+                                    {course.course_id}
                                 </MenuItem>
                             ))}
                         </Select>
@@ -1171,15 +1182,29 @@ function AdminControlPage() {
                         onChange={handleGradeChange}
                     />
 
-                    <TextField
-                        margin="dense"
-                        name="grade"
-                        label="Grade"
-                        fullWidth
-                        variant="outlined"
-                        value={currentGrade.grade}
-                        onChange={handleGradeChange}
-                    />
+                    <FormControl fullWidth margin="dense">
+                        <InputLabel>Grade</InputLabel>
+                        <Select
+                            name="grade"
+                            value={currentGrade.grade || ""}
+                            onChange={handleGradeChange}
+                            label="Grade"
+                        >
+                            <MenuItem value="A+">A+</MenuItem>
+                            <MenuItem value="A">A</MenuItem>
+                            <MenuItem value="A-">A-</MenuItem>
+                            <MenuItem value="B+">B+</MenuItem>
+                            <MenuItem value="B">B</MenuItem>
+                            <MenuItem value="B-">B-</MenuItem>
+                            <MenuItem value="C+">C+</MenuItem>
+                            <MenuItem value="C">C</MenuItem>
+                            <MenuItem value="C-">C-</MenuItem>
+                            <MenuItem value="D+">D+</MenuItem>
+                            <MenuItem value="D">D</MenuItem>
+                            <MenuItem value="D-">D-</MenuItem>
+                            <MenuItem value="F">F</MenuItem>
+                        </Select>
+                    </FormControl>
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleCloseGradeDialog}>Cancel</Button>

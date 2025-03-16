@@ -41,7 +41,7 @@ function GradesQueryPage() {
             try {
                 setLoading(true);
 
-                const response = await fetch("/api/student/grades", {
+                const response = await fetch("http://localhost:3000/api/students/grades", {
                     headers: { Authorization: `Bearer ${user.token}` },
                 });
 
@@ -50,20 +50,23 @@ function GradesQueryPage() {
                 }
 
                 const data = await response.json();
-                setGrades(data.grades || []);
-
+                setGrades(data.data || []);
                 // Calculate statistics
-                if (data.grades && data.grades.length > 0) {
-                    const completedCourses = data.grades.length;
-                    const totalCredits = data.grades.reduce((sum, grade) => sum + (grade.credits || 0), 0);
+                if (data.data && data.data.length > 0) {
+                    // Only count courses with non-null grades as completed
+                    const completedCourses = data.data.filter(course => course.grade !== null && course.grade !== '').length;
 
-                    // Calculate GPA (assuming grades are on a 4.0 scale)
-                    const gradePoints = data.grades.reduce((sum, grade) => {
-                        const credits = grade.credits || 0;
+                    const totalCredits = data.data.reduce((sum, grade) => sum + (parseInt(grade.credits) || 0), 0);
+
+                    // Calculate GPA
+                    const gradePoints = data.data.reduce((sum, grade) => {
+                        const credits = typeof grade.credits === 'number' ? grade.credits : parseInt(grade.credits) || 0;
                         const gradeValue = getGradeValue(grade.grade);
+                        console.log(`Course: ${grade.course_name}, Grade: ${grade.grade}, Value: ${gradeValue}, Credits: ${credits}`);
                         return sum + (gradeValue * credits);
                     }, 0);
 
+                    console.log("Grades", gradePoints);
                     const gpa = totalCredits > 0 ? gradePoints / totalCredits : 0;
 
                     setStatistics({
@@ -86,7 +89,7 @@ function GradesQueryPage() {
     // Helper function to convert letter grade to numeric value
     const getGradeValue = (grade) => {
         const gradeMap = {
-            'A': 4.0, 'A-': 3.7,
+            'A+': 4.0, 'A': 4.0, 'A-': 3.7,
             'B+': 3.3, 'B': 3.0, 'B-': 2.7,
             'C+': 2.3, 'C': 2.0, 'C-': 1.7,
             'D+': 1.3, 'D': 1.0, 'D-': 0.7,
@@ -101,13 +104,14 @@ function GradesQueryPage() {
 
     // Filter grades based on search term and semester
     const filteredGrades = grades.filter(grade => {
-        const matchesSearch = grade.courseName.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesSearch = (grade.course_name || "").toLowerCase().includes(searchTerm.toLowerCase());
         const matchesSemester = semesterFilter === 'all' || grade.semester === semesterFilter;
         return matchesSearch && matchesSemester;
     });
 
     // Helper function to set grade color based on value
     const getGradeColor = (grade) => {
+        if (!grade) return '#757575'; // Grey for null/empty grades
         if (grade.startsWith('A')) return '#4caf50'; // Green
         if (grade.startsWith('B')) return '#2196f3'; // Blue
         if (grade.startsWith('C')) return '#ff9800'; // Orange
@@ -211,23 +215,27 @@ function GradesQueryPage() {
                                     <TableBody>
                                         {filteredGrades.length > 0 ? (
                                             filteredGrades.map((grade) => (
-                                                <TableRow key={grade.id} hover>
-                                                    <TableCell>{grade.courseCode}</TableCell>
-                                                    <TableCell>{grade.courseName}</TableCell>
+                                                <TableRow key={`${grade.course_id}-${grade.sec_id}-${grade.semester}-${grade.year}`} hover>
+                                                    <TableCell>{grade.course_id}</TableCell>
+                                                    <TableCell>{grade.course_name}</TableCell>
                                                     <TableCell>{grade.credits}</TableCell>
                                                     <TableCell>
-                                                        <Box
-                                                            sx={{
-                                                                display: 'inline-block',
-                                                                bgcolor: getGradeColor(grade.grade),
-                                                                color: 'white',
-                                                                px: 1.5,
-                                                                py: 0.5,
-                                                                borderRadius: 1
-                                                            }}
-                                                        >
-                                                            {grade.grade}
-                                                        </Box>
+                                                        {grade.grade ? (
+                                                            <Box
+                                                                sx={{
+                                                                    display: 'inline-block',
+                                                                    bgcolor: getGradeColor(grade.grade),
+                                                                    color: 'white',
+                                                                    px: 1.5,
+                                                                    py: 0.5,
+                                                                    borderRadius: 1
+                                                                }}
+                                                            >
+                                                                {grade.grade}
+                                                            </Box>
+                                                        ) : (
+                                                            "Not graded"
+                                                        )}
                                                     </TableCell>
                                                     <TableCell>{grade.semester}</TableCell>
                                                 </TableRow>

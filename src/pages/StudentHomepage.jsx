@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 import {
     Typography,
@@ -11,7 +11,7 @@ import {
     Button,
     CardActions
 } from "@mui/material";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import BookIcon from "@mui/icons-material/Book";
 import GradeIcon from "@mui/icons-material/Grade";
@@ -20,72 +20,83 @@ import "../styles/common.css";
 
 function StudentHomepage() {
     const { user } = useAuth();
+    const location = useLocation();
     const [info, setInfo] = useState(null);
     const [courseStats, setCourseStats] = useState({enrolled: 0, available: 0});
     const [gradeStats, setGradeStats] = useState({completed: 0, gpa: 0});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
+    const fetchData = useCallback(async () => {
+        try {
+            setLoading(true);
+
+            // Fetch student info
+            const infoResponse = await fetch("http://localhost:3000/api/students/info", {
+                headers: { Authorization: `Bearer ${user.token}` },
+            });
+
+            if (!infoResponse.ok) {
+                const errorText = await infoResponse.text();
+                console.error("Error response:", errorText);
+                throw new Error(`Failed to fetch student information: ${infoResponse.status}`);
+            }
+
+            const contentType = infoResponse.headers.get("content-type");
+            if (!contentType || !contentType.includes("application/json")) {
+                const text = await infoResponse.text();
+                console.error("Non-JSON response:", text);
+                throw new Error("Server returned non-JSON response");
+            }
+
+            const infoData = await infoResponse.json();
+            setInfo(infoData);
+
+            // Fetch course stats
+            const courseResponse = await fetch("http://localhost:3000/api/students/course-stats", {
+                headers: { Authorization: `Bearer ${user.token}` },
+            });
+
+            if (courseResponse.ok) {
+                const courseData = await courseResponse.json();
+                console.log("Updated course stats:", courseData);
+                setCourseStats(courseData);
+            }
+
+            const gradeResponse = await fetch("http://localhost:3000/api/students/grade-stats", {
+                headers: { Authorization: `Bearer ${user.token}` },
+            });
+
+            if (gradeResponse.ok) {
+                const gradeData = await gradeResponse.json();
+                setGradeStats(gradeData);
+            }
+
+            setLoading(false);
+        } catch (err) {
+            setError(err.message);
+            setLoading(false);
+        }
+    }, [user.token]);
+
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                // Fetch student info
-                const infoResponse = await fetch("http://localhost:3000/api/students/info", {
-                    headers: { Authorization: `Bearer ${user.token}` },
-                });
+        fetchData();
 
-                if (!infoResponse.ok) {
-                    // Display actual response content for debugging
-                    const errorText = await infoResponse.text();
-                    console.error("Error response:", errorText);
-                    throw new Error(`Failed to fetch student information: ${infoResponse.status}`);
-                }
-                // else {
-                //     console.log("Student info response:", infoResponse.data);
-                //     setInfo(infoResponse.data);
-                // }
-
-
-                // Check response content type
-                const contentType = infoResponse.headers.get("content-type");
-                if (!contentType || !contentType.includes("application/json")) {
-                    const text = await infoResponse.text();
-                    console.error("Non-JSON response:", text);
-                    throw new Error("Server returned non-JSON response");
-                }
-
-                const infoData = await infoResponse.json();
-                setInfo(infoData);
-
-                // Use consistent URL format for all API calls
-                const courseResponse = await fetch("http://localhost:3000/api/students/course-stats", {
-                    headers: { Authorization: `Bearer ${user.token}` },
-                });
-
-                if (courseResponse.ok) {
-                    const courseData = await courseResponse.json();
-                    setCourseStats(courseData);
-                }
-
-                // Fix URL path (students plural)
-                const gradeResponse = await fetch("http://localhost:3000/api/students/grade-stats", {
-                    headers: { Authorization: `Bearer ${user.token}` },
-                });
-
-                if (gradeResponse.ok) {
-                    const gradeData = await gradeResponse.json();
-                    setGradeStats(gradeData);
-                }
-
-                setLoading(false);
-            } catch (err) {
-                setError(err.message);
-                setLoading(false);
+        // Add event listener for page visibility change
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                console.log("Page became visible, refreshing data");
+                fetchData();
             }
         };
 
-        fetchData();
-    }, [user.token]);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        // Cleanup
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [fetchData]);
 
     return (
         <Layout role="student">

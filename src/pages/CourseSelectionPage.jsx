@@ -122,26 +122,44 @@ function CourseSelectionPage() {
     const handleDrop = async (courseId, sectionId, semester, year) => {
         if (window.confirm("Are you sure you want to drop this course?")) {
             try {
-                const response = await fetch(`http://localhost:3000/api/students/drop`, {
+                console.log("Dropping course with data:", { courseId, sectionId, semester, year });
+
+                // Create payload with consistent naming that matches your database fields
+                const payload = {
+                    course_id: courseId,
+                    sec_id: sectionId,
+                    semester: semester,
+                    year: year
+                };
+
+                console.log("Sending drop request with payload:", payload);
+
+                const response = await fetch("http://localhost:3000/api/students/drop", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
                         Authorization: `Bearer ${user.token}`
                     },
-                    body: JSON.stringify({ courseId, sectionId, semester, year }),
+                    body: JSON.stringify(payload),
                 });
 
+                console.log("Drop response status:", response.status);
+
+                const data = await response.json();
+                console.log("Response data:", data);
+
                 if (!response.ok) {
-                    throw new Error("Failed to drop course");
+                    throw new Error(data.message || "Failed to drop course");
                 }
 
-                setSuccess("Course dropped successfully");
+                setSuccess("Successfully dropped course");
                 setTimeout(() => setSuccess(null), 3000);
 
                 // Refresh course lists
                 fetchCourses();
             } catch (err) {
-                setError(err.message);
+                console.error("Drop error:", err);
+                setError(err.message || "Network error during drop request");
                 setTimeout(() => setError(null), 3000);
             }
         }
