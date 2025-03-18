@@ -1,15 +1,15 @@
-import React, {useEffect} from "react";
+import React, { useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import LoginPage from "./pages/LoginPage";
 import StudentHomepage from "./pages/StudentHomepage";
 import TeacherHomepage from "./pages/TeacherHomepage";
 import AdminHomepage from "./pages/AdminHomepage";
-import SchedulePage from "./pages/SchedulePage.jsx";
+import SchedulePage from "./pages/SchedulePage";
 import CourseSelectionPage from "./pages/CourseSelectionPage";
 import GradesQueryPage from "./pages/GradesQueryPage";
 import CourseManagementPage from "./pages/CourseManagementPage";
-import GradesManagementPage from "./pages/GradesManagementPage.jsx";
+import GradesManagementPage from "./pages/GradesManagementPage";
 import AdminControlPage from "./pages/AdminControlPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -17,6 +17,7 @@ function App() {
     useEffect(() => {
         console.log("User from localStorage:", localStorage.getItem("user"));
     }, []);
+
     return (
         <AuthProvider>
             <Router>
@@ -73,6 +74,7 @@ function App() {
                             <AdminControlPage />
                         </ProtectedRoute>
                     } />
+
                     {/* Default routes */}
                     <Route path="/" element={<Navigate to="/login" replace />} />
                     <Route path="*" element={<Navigate to="/login" replace />} />

@@ -49,6 +49,7 @@ function AdminControlPage() {
     const [classrooms, setClassrooms] = useState([]);
     const [timeSlots, setTimeSlots] = useState([]);
     const [availableRooms, setAvailableRooms] = useState([]);
+    const [teachers, setTeachers] = useState([]);
     const [currentCourse, setCurrentCourse] = useState({
         course_id: "",
         course_name: "",
@@ -95,7 +96,10 @@ function AdminControlPage() {
         year: "",
         building: "",
         room_number: "",
-        time_slot_id: ""
+        time_slot_id: "",
+        teacher_id: "",
+        capacity: "",
+        old_teacher_id: "" // Add this field
     });
     const handleTabChange = (event, newValue) => {
         setTabValue(newValue);
@@ -255,6 +259,16 @@ function AdminControlPage() {
                 }
                 const timeSlotsData = await timeSlotsResponse.json();
                 setTimeSlots(timeSlotsData.data || []);
+                // Add this to your existing fetchData function in useEffect
+                const teachersResponse = await fetch("http://localhost:3000/api/admin/teachers", {
+                    headers: { Authorization: `Bearer ${user.token}` },
+                });
+
+                if (!teachersResponse.ok) {
+                    throw new Error("Failed to fetch teachers");
+                }
+                const teachersData = await teachersResponse.json();
+                setTeachers(teachersData.data || []);
             } catch (err) {
                 setError(err.message);
                 setLoading(false);
@@ -494,17 +508,6 @@ function AdminControlPage() {
         }
     };
 
-    // Find student and course names by ID
-    const getStudentName = (studentId) => {
-        const student = students.find(s => s.id === studentId);
-        return student ? student.name : "Unknown";
-    };
-
-    const getCourseName = (courseId) => {
-        const course = courses.find(c => c.id === courseId);
-        return course ? course.name : "Unknown";
-    };
-
     // Student registration handlers
     const handleOpenStudentDialog = async () => {
         try {
@@ -645,7 +648,10 @@ function AdminControlPage() {
     // Section handlers
     const handleOpenSectionDialog = (section = null) => {
         if (section) {
-            setCurrentSection(section);
+            setCurrentSection({
+                ...section,
+                old_teacher_id: section.teacher_id // Store the original teacher_id
+            });
             setIsEditing(true);
         } else {
             setCurrentSection({
@@ -655,7 +661,10 @@ function AdminControlPage() {
                 year: "",
                 building: "",
                 room_number: "",
-                time_slot_id: ""
+                time_slot_id: "",
+                teacher_id: "",
+                capacity: "",
+                old_teacher_id: ""
             });
             setIsEditing(false);
         }
@@ -674,19 +683,20 @@ function AdminControlPage() {
     };
 
     const handleSaveSection = async () => {
-        // Validate required primary key fields
+        // Validate required fields
         if (!currentSection.course_id || !currentSection.sec_id ||
-            !currentSection.semester || !currentSection.year) {
-            showMessage('error',"Course ID, Section ID, Semester, and Year are required fields");
+            !currentSection.semester || !currentSection.year || !currentSection.teacher_id) {
+            showMessage('error', "Course ID, Section ID, Semester, Year, and Teacher are required fields");
             return;
         }
 
         try {
             const method = isEditing ? "PUT" : "POST";
             const url = isEditing
-                ? `http://localhost:3000/api/admin/sections/${currentSection.course_id}/${currentSection.sec_id}/${currentSection.semester}/${currentSection.year}`
+                ? `http://localhost:3000/api/admin/sections/${currentSection.course_id}/${currentSection.sec_id}/${currentSection.semester}/${currentSection.year}/${currentSection.capacity}`
                 : "http://localhost:3000/api/admin/sections";
 
+            // Save section
             const response = await fetch(url, {
                 method,
                 headers: {
@@ -696,28 +706,23 @@ function AdminControlPage() {
                 body: JSON.stringify(currentSection)
             });
 
-            if (!response.ok) {
-                throw new Error(`Failed to ${isEditing ? "update" : "create"} section`);
-            }
+            if (!response.ok) throw new Error(`Failed to ${isEditing ? "update" : "create"} section`);
 
-            // Refresh sections
+            // Refresh sections list
             const sectionsResponse = await fetch("http://localhost:3000/api/admin/sections", {
                 headers: { Authorization: `Bearer ${user.token}` },
             });
 
-            if (!sectionsResponse.ok) {
-                throw new Error("Failed to refresh sections");
-            }
+            if (!sectionsResponse.ok) throw new Error("Failed to refresh sections");
 
             const sectionsData = await sectionsResponse.json();
-            // Fix: Use the correct property name (data, not sections)
             setSections(sectionsData.data || []);
             setSuccess(`Section ${isEditing ? "updated" : "created"} successfully`);
 
             setTimeout(() => setSuccess(null), 3000);
             setOpenSectionDialog(false);
         } catch (err) {
-            showMessage('error',err.message);
+            showMessage('error', err.message);
         }
     };
 
@@ -902,12 +907,14 @@ function AdminControlPage() {
                                                 <TableRow>
                                                     <TableCell>Course ID</TableCell>
                                                     <TableCell>Course Name</TableCell>
+                                                    <TableCell>Teacher Name </TableCell>
                                                     <TableCell>Section ID</TableCell>
                                                     <TableCell>Semester</TableCell>
                                                     <TableCell>Year</TableCell>
                                                     <TableCell>Building</TableCell>
                                                     <TableCell>Room</TableCell>
                                                     <TableCell>Time Slot</TableCell>
+                                                    <TableCell>Capacity</TableCell>
                                                     <TableCell>Actions</TableCell>
                                                 </TableRow>
                                             </TableHead>
@@ -918,12 +925,22 @@ function AdminControlPage() {
                                                         <TableCell>
                                                             {courses.find(c => c.course_id === section.course_id)?.course_name || "Unknown"}
                                                         </TableCell>
+                                                        <TableCell>
+                                                            {teachers.find(t => t.teacher_id === section.teacher_id)?.teacher_name || 'Not assigned'}
+                                                        </TableCell>
                                                         <TableCell>{section.sec_id}</TableCell>
                                                         <TableCell>{section.semester}</TableCell>
                                                         <TableCell>{section.year}</TableCell>
                                                         <TableCell>{section.building}</TableCell>
                                                         <TableCell>{section.room_number}</TableCell>
                                                         <TableCell>{section.time_slot_id}</TableCell>
+                                                        <TableCell>
+                                                            {(() => {
+                                                                console.log('Section:', section);
+                                                                console.log('Capacity value:', section.capacity);
+                                                                return section.capacity ? section.capacity : '未设置';
+                                                            })()}
+                                                        </TableCell>
                                                         <TableCell>
                                                             <IconButton onClick={() => handleOpenSectionDialog(section)} size="small">
                                                                 <EditIcon />
@@ -1584,6 +1601,35 @@ function AdminControlPage() {
                             ))}
                         </Select>
                     </FormControl>
+                    {/* Teacher selection - required */}
+                    <FormControl fullWidth margin="dense" required>
+                        <InputLabel>Teacher</InputLabel>
+                        <Select
+                            name="teacher_id"
+                            value={currentSection.teacher_id}
+                            onChange={handleSectionChange}
+                            label="Teacher"
+                        >
+                            {teachers.map(teacher => (
+                                <MenuItem key={teacher.teacher_id} value={teacher.teacher_id}>
+                                    {teacher.teacher_name} ({teacher.teacher_id})
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                    <TextField
+                        margin="dense"
+                        name="capacity"
+                        label="Section Capacity"
+                        type="number"
+                        fullWidth
+                        variant="outlined"
+                        value={currentSection.capacity || ''}
+                        onChange={handleSectionChange}
+                        InputProps={{
+                            inputProps: { min: 1 }
+                        }}
+                    />
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleCloseSectionDialog}>Cancel</Button>

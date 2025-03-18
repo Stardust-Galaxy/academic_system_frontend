@@ -7,9 +7,6 @@ import {
     Box,
     CircularProgress,
     Divider,
-    Grid,
-    Button,
-    CardActions,
     Table,
     TableBody,
     TableCell,
@@ -18,26 +15,20 @@ import {
     TableRow,
     Paper
 } from "@mui/material";
-import { Link } from "react-router-dom";
-import PeopleIcon from "@mui/icons-material/People";
-import BookIcon from "@mui/icons-material/Book";
-import GradeIcon from "@mui/icons-material/Grade";
 import Layout from "../components/Layout";
 import "../styles/common.css";
 
 function TeacherHomepage() {
     const { user } = useAuth();
     const [info, setInfo] = useState(null);
-    const [courseStats, setCourseStats] = useState({ total: 0, students: 0 });
-    const [recentCourses, setRecentCourses] = useState([]);
+    const [courses, setCourses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                // Fetch teacher info
-                const infoResponse = await fetch("/api/teacher/info", {
+                const infoResponse = await fetch("http://localhost:3000/api/teachers/info", {
                     headers: { Authorization: `Bearer ${user.token}` },
                 });
 
@@ -48,25 +39,25 @@ function TeacherHomepage() {
                 const infoData = await infoResponse.json();
                 setInfo(infoData);
 
-                // Fetch course statistics
-                const statsResponse = await fetch("/api/teacher/course-stats", {
+                const coursesResponse = await fetch("http://localhost:3000/api/teachers/courses", {
                     headers: { Authorization: `Bearer ${user.token}` },
                 });
 
-                if (statsResponse.ok) {
-                    const statsData = await statsResponse.json();
-                    setCourseStats(statsData);
+                if (!coursesResponse.ok) {
+                    throw new Error("Failed to fetch courses");
                 }
 
-                // Fetch recent courses
-                const coursesResponse = await fetch("/api/teacher/courses?recent=true", {
-                    headers: { Authorization: `Bearer ${user.token}` },
-                });
-
-                if (coursesResponse.ok) {
-                    const coursesData = await coursesResponse.json();
-                    setRecentCourses(coursesData.courses || []);
-                }
+                const coursesData = await coursesResponse.json();
+                // Filter unique courses based on course_id
+                const uniqueCourses = Array.from(
+                    coursesData.data.reduce((map, course) => {
+                        if (!map.has(course.course_id)) {
+                            map.set(course.course_id, course);
+                        }
+                        return map;
+                    }, new Map()).values()
+                );
+                setCourses(uniqueCourses);
 
                 setLoading(false);
             } catch (err) {
@@ -91,132 +82,48 @@ function TeacherHomepage() {
                     <Card className="page-card" sx={{ mb: 4 }}>
                         <CardContent>
                             <Typography variant="h4" className="page-title">
-                                Welcome, {info.name}
+                                Welcome, {info.teacher_name}
                             </Typography>
                             <Divider sx={{ mb: 3 }} />
                             <Box className="info-section">
-                                <Typography variant="body1">Teacher ID: {info.id}</Typography>
-                                <Typography variant="body1">Department: {info.department}</Typography>
-                                <Typography variant="body1">Email: {info.email}</Typography>
+                                <Typography variant="body1">Teacher ID: {info.teacher_id}</Typography>
+                                <Typography variant="body1">Department: {info.dept_name}</Typography>
+
+                                <Typography variant="body1">Telephone: {info.tele}</Typography>
                             </Box>
                         </CardContent>
                     </Card>
 
                     <Typography variant="h5" sx={{ mb: 2 }}>
-                        Dashboard
-                    </Typography>
-
-                    <Grid container spacing={3} className="dashboard-grid">
-                        <Grid item xs={12} md={6}>
-                            <Card className="page-card stat-card">
-                                <CardContent>
-                                    <Typography variant="h6" color="primary" gutterBottom>
-                                        <BookIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
-                                        My Courses
-                                    </Typography>
-                                    <Typography variant="h3">{courseStats.total}</Typography>
-                                    <Typography variant="body2" color="textSecondary">
-                                        Courses currently teaching
-                                    </Typography>
-                                </CardContent>
-                                <CardActions>
-                                    <Button
-                                        component={Link}
-                                        to="/teacher/course-management"
-                                        size="small"
-                                        color="primary"
-                                    >
-                                        Manage Courses
-                                    </Button>
-                                </CardActions>
-                            </Card>
-                        </Grid>
-
-                        <Grid item xs={12} md={6}>
-                            <Card className="page-card stat-card">
-                                <CardContent>
-                                    <Typography variant="h6" color="primary" gutterBottom>
-                                        <PeopleIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
-                                        Students
-                                    </Typography>
-                                    <Typography variant="h3">{courseStats.students}</Typography>
-                                    <Typography variant="body2" color="textSecondary">
-                                        Total enrolled students
-                                    </Typography>
-                                </CardContent>
-                                <CardActions>
-                                    <Button
-                                        component={Link}
-                                        to="/teacher/grades-management"
-                                        size="small"
-                                        color="primary"
-                                    >
-                                        Manage Grades
-                                    </Button>
-                                </CardActions>
-                            </Card>
-                        </Grid>
-                    </Grid>
-
-                    <Typography variant="h5" sx={{ mt: 4, mb: 2 }}>
                         My Courses
                     </Typography>
 
-                    <Card className="page-card">
-                        <CardContent>
-                            <TableContainer component={Paper} sx={{ boxShadow: 'none' }}>
-                                <Table>
-                                    <TableHead sx={{ backgroundColor: "#f5f5f5" }}>
-                                        <TableRow>
-                                            <TableCell>Course Name</TableCell>
-                                            <TableCell>Schedule</TableCell>
-                                            <TableCell>Location</TableCell>
-                                            <TableCell>Students</TableCell>
-                                            <TableCell>Action</TableCell>
+                    <TableContainer component={Paper} sx={{ boxShadow: 'none' }}>
+                        <Table>
+                            <TableHead sx={{ backgroundColor: "#f5f5f5" }}>
+                                <TableRow>
+                                    <TableCell>Course Name</TableCell>
+                                    <TableCell>Department</TableCell>
+                                    <TableCell>Credits</TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {courses.length > 0 ? (
+                                    courses.map((course) => (
+                                        <TableRow key={course.course_id} hover>
+                                            <TableCell>{course.course_name}</TableCell>
+                                            <TableCell>{course.dept_name}</TableCell>
+                                            <TableCell>{course.credits}</TableCell>
                                         </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {recentCourses.length > 0 ? (
-                                            recentCourses.map((course) => (
-                                                <TableRow key={course.id} hover>
-                                                    <TableCell>{course.name}</TableCell>
-                                                    <TableCell>{course.time}</TableCell>
-                                                    <TableCell>{course.location}</TableCell>
-                                                    <TableCell>{course.enrolledCount}/{course.capacity}</TableCell>
-                                                    <TableCell>
-                                                        <Button
-                                                            variant="outlined"
-                                                            size="small"
-                                                            component={Link}
-                                                            to={`/teacher/grades-management?courseId=${course.id}`}
-                                                            startIcon={<GradeIcon />}
-                                                        >
-                                                            Grades
-                                                        </Button>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))
-                                        ) : (
-                                            <TableRow>
-                                                <TableCell colSpan={5} align="center">No courses found</TableCell>
-                                            </TableRow>
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-                            {recentCourses.length > 0 && (
-                                <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-                                    <Button
-                                        component={Link}
-                                        to="/teacher/course-management"
-                                        color="primary"
-                                    >
-                                        View All Courses
-                                    </Button>
-                                </Box>
-                            )}
-                        </CardContent>
-                    </Card>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={3} align="center">No courses found</TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
                 </>
             )}
         </Layout>

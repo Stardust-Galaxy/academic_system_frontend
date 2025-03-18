@@ -26,7 +26,7 @@ function LoginPage() {
     const [resetError, setResetError] = useState("");
     const [resetSuccess, setResetSuccess] = useState(false);
     const [currentPassword, setCurrentPassword] = useState("");
-    const [verificationSuccess, setVerificationSuccess] = useState(false);
+    // const [verificationSuccess, setVerificationSuccess] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -47,7 +47,7 @@ function LoginPage() {
             login(data.token, user_type);
             navigate(`/${user_type}`);
         } catch (err) {
-            setError("An error occurred");
+            setError(err.message ||"An error occurred");
             console.error(err);
         }
     };
